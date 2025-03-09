@@ -13,6 +13,11 @@
     "min_seconds": 5,
     "max_seconds": 30
   },
+  "operation_randomization": {
+    "enable_randomization": true,
+    "excluded_operations": ["faucet"],
+    "operations_to_run": ["faucet", "transfer", "contract_deploy", "erc20", "nft"]
+  },
   "contract": {
     "contract_interactions": {
       "enabled": true,
