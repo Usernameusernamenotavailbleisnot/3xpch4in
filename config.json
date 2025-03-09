@@ -16,7 +16,22 @@
   "operation_randomization": {
     "enable_randomization": true,
     "excluded_operations": ["faucet"],
-    "operations_to_run": ["faucet", "transfer", "contract_deploy", "erc20", "nft"]
+    "operations_to_run": ["faucet", "transfer", "contract_deploy", "contract_testing", "erc20", "nft", "batch_operations"]
+  },
+  "contract_testing": {
+    "enable_contract_testing": true,
+    "test_sequences": ["parameter_variation", "stress_test", "boundary_test"],
+    "iterations": {
+      "min": 3,
+      "max": 10
+    }
+  },
+  "batch_operations": {
+    "enable_batch_operations": true,
+    "operations_per_batch": {
+      "min": 2,
+      "max": 5
+    }
   },
   "contract": {
     "contract_interactions": {
