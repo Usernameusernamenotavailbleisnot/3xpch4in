@@ -10,7 +10,7 @@ const TokenTransfer = require('./src/transfer');
 const ContractDeployer = require('./src/ContractDeployer');
 const ERC20TokenDeployer = require('./src/ERC20TokenDeployer');
 const NFTManager = require('./src/NFTManager');
-const FaucetManager = require('./src/FaucetManager'); // Added FaucetManager
+const FaucetManager = require('./src/FaucetManager');
 const constants = require('./utils/constants');
 const { addRandomDelay, getTimestamp } = require('./utils/delayUtils');
 
@@ -32,12 +32,17 @@ async function loadConfig() {
         
         console.log(chalk.yellow(`${getTimestamp()} ⚠ No configuration file found, using defaults`));
         // Return a default configuration
-                    return {
+        return {
             enable_transfer: true,
             enable_contract_deploy: true,
             erc20: { enable_erc20: true },
             nft: { enable_nft: true },
-            faucet: { enable_faucet: true }, // Added faucet config
+            faucet: { enable_faucet: true },
+            operation_randomization: {
+                enable_randomization: false,
+                excluded_operations: [],
+                operations_to_run: ["faucet", "transfer", "contract_deploy", "erc20", "nft"]
+            },
             delay: {
                 min_seconds: constants.DELAY.MIN_SECONDS,
                 max_seconds: constants.DELAY.MAX_SECONDS
@@ -54,7 +59,12 @@ async function loadConfig() {
             enable_contract_deploy: true,
             erc20: { enable_erc20: true },
             nft: { enable_nft: true },
-            faucet: { enable_faucet: true }, // Added faucet config
+            faucet: { enable_faucet: true },
+            operation_randomization: {
+                enable_randomization: false,
+                excluded_operations: [],
+                operations_to_run: ["faucet", "transfer", "contract_deploy", "erc20", "nft"]
+            },
             gas_price_multiplier: constants.GAS.PRICE_MULTIPLIER,
             max_retries: constants.RETRY.MAX_RETRIES,
             base_wait_time: constants.RETRY.BASE_WAIT_TIME,
@@ -117,6 +127,177 @@ async function countdownTimer(hours = 8) {
     console.log(chalk.green(`${getTimestamp()} ✓ Countdown completed!`));
 }
 
+// Execute faucet operations
+async function executeFaucetOperation(faucetManager, discordToken, walletAddress, config, walletNum) {
+    if (discordToken && config.faucet && config.faucet.enable_faucet) {
+        try {
+            console.log(chalk.blue.bold(`\n=== Running Faucet Operations for Wallet ${walletNum} ===\n`));
+            
+            // Initialize faucet manager with current config
+            faucetManager.setWalletNum(walletNum);
+            
+            // Execute faucet operations
+            await faucetManager.executeFaucetOperations(discordToken, walletAddress);
+            
+            // Add random delay after faucet operations
+            await addRandomDelay(config, walletNum, "next operation");
+            
+            return true;
+        } catch (error) {
+            console.log(chalk.red(`${getTimestamp(walletNum)} ✗ Error in faucet operations: ${error.message}`));
+            return false;
+        }
+    } else if (config.faucet && config.faucet.enable_faucet) {
+        console.log(chalk.yellow(`${getTimestamp(walletNum)} ⚠ No Discord token available for faucet operations`));
+        return false;
+    }
+    return false;
+}
+
+// Execute transfer operations
+async function executeTransferOperation(tokenTransfer, pk, config, walletNum) {
+    if (config.enable_transfer) {
+        let success = false;
+        let attempt = 0;
+        
+        while (!success && attempt < config.max_retries) {
+            console.log(chalk.blue.bold(`\n=== Running Transfer Operations for Wallet ${walletNum} ===\n`));
+            console.log(chalk.blue.bold(`${getTimestamp(walletNum)} Transferring tokens... (Attempt ${attempt + 1}/${config.max_retries})`));
+            success = await tokenTransfer.transferToSelf(pk, walletNum);
+            
+            if (!success) {
+                attempt++;
+                if (attempt < config.max_retries) {
+                    const waitTime = Math.min(300, config.base_wait_time * (2 ** attempt));
+                    console.log(chalk.yellow(`${getTimestamp(walletNum)} Waiting ${waitTime} seconds before retry...`));
+                    await new Promise(resolve => setTimeout(resolve, waitTime * 1000));
+                }
+            }
+        }
+        
+        // Add random delay after transfer operations
+        await addRandomDelay(config, walletNum, "next operation");
+        return success;
+    }
+    return false;
+}
+
+// Execute contract deployment operations
+async function executeContractOperation(pk, config, walletNum) {
+    if (config.enable_contract_deploy) {
+        try {
+            console.log(chalk.blue.bold(`\n=== Running Contract Operations for Wallet ${walletNum} ===\n`));
+            
+            // Initialize contract deployer with wallet's private key and current config
+            const contractDeployer = new ContractDeployer(pk, config);
+            contractDeployer.setWalletNum(walletNum);
+            
+            // Execute contract operations (compile, deploy, interact)
+            await contractDeployer.executeContractOperations();
+            
+            // Add random delay after contract operations
+            await addRandomDelay(config, walletNum, "next operation");
+            
+            return true;
+        } catch (error) {
+            console.log(chalk.red(`${getTimestamp(walletNum)} ✗ Error in contract operations: ${error.message}`));
+            return false;
+        }
+    }
+    return false;
+}
+
+// Execute ERC20 token operations
+async function executeERC20Operation(pk, config, walletNum) {
+    if (config.erc20 && config.erc20.enable_erc20) {
+        try {
+            console.log(chalk.blue.bold(`\n=== Running ERC20 Token Operations for Wallet ${walletNum} ===\n`));
+            
+            // Initialize ERC20 token deployer with wallet's private key and current config
+            const erc20Deployer = new ERC20TokenDeployer(pk, config);
+            erc20Deployer.setWalletNum(walletNum);
+            
+            // Execute ERC20 token operations (compile, deploy, mint, burn)
+            await erc20Deployer.executeTokenOperations();
+            
+            // Add random delay after ERC20 operations
+            await addRandomDelay(config, walletNum, "next operation");
+            
+            return true;
+        } catch (error) {
+            console.log(chalk.red(`${getTimestamp(walletNum)} ✗ Error in ERC20 token operations: ${error.message}`));
+            return false;
+        }
+    }
+    return false;
+}
+
+// Execute NFT operations
+async function executeNFTOperation(pk, config, walletNum) {
+    if (config.nft && config.nft.enable_nft) {
+        try {
+            console.log(chalk.blue.bold(`\n=== Running NFT Operations for Wallet ${walletNum} ===\n`));
+            
+            // Initialize NFT manager with wallet's private key and current config
+            const nftManager = new NFTManager(pk, config);
+            nftManager.setWalletNum(walletNum);
+            
+            // Execute NFT operations (compile, deploy, mint, burn)
+            await nftManager.executeNFTOperations();
+            
+            // Add random delay after NFT operations
+            await addRandomDelay(config, walletNum, "completing wallet operations");
+            
+            return true;
+        } catch (error) {
+            console.log(chalk.red(`${getTimestamp(walletNum)} ✗ Error in NFT operations: ${error.message}`));
+            return false;
+        }
+    }
+    return false;
+}
+
+// Randomize operations order
+function getRandomizedOperations(config) {
+    const randomizationConfig = config.operation_randomization || { 
+        enable_randomization: false, 
+        excluded_operations: [],
+        operations_to_run: ["faucet", "transfer", "contract_deploy", "erc20", "nft"]
+    };
+    
+    // Define all operations
+    const allOperations = [
+        { name: "faucet", fn: executeFaucetOperation },
+        { name: "transfer", fn: executeTransferOperation },
+        { name: "contract_deploy", fn: executeContractOperation },
+        { name: "erc20", fn: executeERC20Operation },
+        { name: "nft", fn: executeNFTOperation }
+    ];
+    
+    // Filter operations based on operations_to_run config
+    const operationsToRun = randomizationConfig.operations_to_run || 
+        ["faucet", "transfer", "contract_deploy", "erc20", "nft"];
+    
+    const filteredOperations = allOperations.filter(op => operationsToRun.includes(op.name));
+    
+    // Split operations into fixed and randomizable based on excluded_operations
+    const excludedOps = randomizationConfig.excluded_operations || [];
+    const fixedOps = filteredOperations.filter(op => excludedOps.includes(op.name));
+    const randomizableOps = filteredOperations.filter(op => !excludedOps.includes(op.name));
+    
+    // Randomize operations if enabled
+    if (randomizationConfig.enable_randomization && randomizableOps.length > 1) {
+        // Fisher-Yates shuffle algorithm
+        for (let i = randomizableOps.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [randomizableOps[i], randomizableOps[j]] = [randomizableOps[j], randomizableOps[i]];
+        }
+    }
+    
+    // Return operations in order: fixed operations first, then randomized operations
+    return [...fixedOps, ...randomizableOps];
+}
+
 async function main() {
     while (true) {
         console.log(chalk.blue.bold('\n=== EXPchain Testnet Automation Tool ===\n'));
@@ -172,104 +353,20 @@ async function main() {
                 const account = web3.eth.accounts.privateKeyToAccount(pk.startsWith('0x') ? pk : '0x' + pk);
                 const walletAddress = account.address;
                 
-                // 1. Execute faucet operations if Discord token is available
-                if (discordToken && config.faucet && config.faucet.enable_faucet) {
-                    try {
-                        console.log(chalk.blue.bold(`\n=== Running Faucet Operations for Wallet ${walletNum} ===\n`));
-                        
-                        // Initialize faucet manager with current config
-                        faucetManager.setWalletNum(walletNum);
-                        
-                        // Execute faucet operations
-                        await faucetManager.executeFaucetOperations(discordToken, walletAddress);
-                        
-                        // Add random delay after faucet operations
-                        await addRandomDelay(config, walletNum, "next operation");
-                        
-                    } catch (error) {
-                        console.log(chalk.red(`${getTimestamp(walletNum)} ✗ Error in faucet operations: ${error.message}`));
-                    }
-                } else if (config.faucet && config.faucet.enable_faucet) {
-                    console.log(chalk.yellow(`${getTimestamp(walletNum)} ⚠ No Discord token available for faucet operations`));
-                }
+                // Get randomized operations
+                const operations = getRandomizedOperations(config);
                 
-                // 2. Transfer tokens to self if enabled
-                if (config.enable_transfer) {
-                    let success = false;
-                    let attempt = 0;
-                    
-                    while (!success && attempt < config.max_retries) {
-                        console.log(chalk.blue.bold(`${getTimestamp(walletNum)} Transferring tokens... (Attempt ${attempt + 1}/${config.max_retries})`));
-                        success = await tokenTransfer.transferToSelf(pk, walletNum);
-                        
-                        if (!success) {
-                            attempt++;
-                            if (attempt < config.max_retries) {
-                                const waitTime = Math.min(300, config.base_wait_time * (2 ** attempt));
-                                console.log(chalk.yellow(`${getTimestamp(walletNum)} Waiting ${waitTime} seconds before retry...`));
-                                await new Promise(resolve => setTimeout(resolve, waitTime * 1000));
-                            }
-                        }
-                    }
-                }
+                // Log the operation sequence
+                console.log(chalk.cyan(`${getTimestamp(walletNum)} ℹ Operations sequence: ${operations.map(op => op.name).join(' -> ')}`));
                 
-                // 3. Deploy smart contract if enabled
-                if (config.enable_contract_deploy) {
-                    try {
-                        console.log(chalk.blue.bold(`\n=== Running Contract Operations for Wallet ${walletNum} ===\n`));
-                        
-                        // Initialize contract deployer with wallet's private key and current config
-                        const contractDeployer = new ContractDeployer(pk, config);
-                        contractDeployer.setWalletNum(walletNum);
-                        
-                        // Execute contract operations (compile, deploy, interact)
-                        await contractDeployer.executeContractOperations();
-                        
-                        // Add random delay after contract operations
-                        await addRandomDelay(config, walletNum, "next operation");
-                        
-                    } catch (error) {
-                        console.log(chalk.red(`${getTimestamp(walletNum)} ✗ Error in contract operations: ${error.message}`));
-                    }
-                }
-                
-                // 4. Deploy ERC20 token if enabled
-                if (config.erc20 && config.erc20.enable_erc20) {
-                    try {
-                        console.log(chalk.blue.bold(`\n=== Running ERC20 Token Operations for Wallet ${walletNum} ===\n`));
-                        
-                        // Initialize ERC20 token deployer with wallet's private key and current config
-                        const erc20Deployer = new ERC20TokenDeployer(pk, config);
-                        erc20Deployer.setWalletNum(walletNum);
-                        
-                        // Execute ERC20 token operations (compile, deploy, mint, burn)
-                        await erc20Deployer.executeTokenOperations();
-                        
-                        // Add random delay after ERC20 operations
-                        await addRandomDelay(config, walletNum, "next operation");
-                        
-                    } catch (error) {
-                        console.log(chalk.red(`${getTimestamp(walletNum)} ✗ Error in ERC20 token operations: ${error.message}`));
-                    }
-                }
-                
-                // 5. Deploy NFT collection if enabled
-                if (config.nft && config.nft.enable_nft) {
-                    try {
-                        console.log(chalk.blue.bold(`\n=== Running NFT Operations for Wallet ${walletNum} ===\n`));
-                        
-                        // Initialize NFT manager with wallet's private key and current config
-                        const nftManager = new NFTManager(pk, config);
-                        nftManager.setWalletNum(walletNum);
-                        
-                        // Execute NFT operations (compile, deploy, mint, burn)
-                        await nftManager.executeNFTOperations();
-                        
-                        // Add random delay after NFT operations
-                        await addRandomDelay(config, walletNum, "completing wallet operations");
-                        
-                    } catch (error) {
-                        console.log(chalk.red(`${getTimestamp(walletNum)} ✗ Error in NFT operations: ${error.message}`));
+                // Execute operations in the determined order
+                for (const operation of operations) {
+                    if (operation.name === "faucet") {
+                        await operation.fn(faucetManager, discordToken, walletAddress, config, walletNum);
+                    } else if (operation.name === "transfer") {
+                        await operation.fn(tokenTransfer, pk, config, walletNum);
+                    } else {
+                        await operation.fn(pk, config, walletNum);
                     }
                 }
 
