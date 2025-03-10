@@ -464,7 +464,7 @@ class ERC20TokenDeployer {
             );
             
             if (mintResult.success) {
-                console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ Minted ${mintAmount.toLocaleString()} ${symbol} tokens: ${mintResult.txHash}`));
+                console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ Minted ${mintAmount.toLocaleString()} ${symbol} tokens`));
                 console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ View transaction: ${constants.NETWORK.EXPLORER_URL}/tx/${mintResult.txHash}`));
                 
                 // Determine burn amount based on config percentage
@@ -482,7 +482,7 @@ class ERC20TokenDeployer {
                     );
                     
                     if (burnResult.success) {
-                        console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ Burned ${burnAmount.toLocaleString()} ${symbol} tokens: ${burnResult.txHash}`));
+                        console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ Burned ${burnAmount.toLocaleString()} ${symbol} tokens`));
                         console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ View transaction: ${constants.NETWORK.EXPLORER_URL}/tx/${burnResult.txHash}`));
                     } else {
                         console.log(chalk.red(`${getTimestamp(this.walletNum)} ✗ Failed to burn tokens: ${burnResult.error}`));

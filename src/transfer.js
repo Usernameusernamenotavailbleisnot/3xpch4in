@@ -200,7 +200,7 @@ class TokenTransfer {
             const signed = await this.web3.eth.accounts.signTransaction(transaction, privateKey);
             const receipt = await this.web3.eth.sendSignedTransaction(signed.rawTransaction);
             
-            console.log(chalk.green(`${getTimestamp(this.currentWalletNum)} ✓ Transfer #${transferNum}/${totalTransfers} successful: ${receipt.transactionHash}`));
+            console.log(chalk.green(`${getTimestamp(this.currentWalletNum)} ✓ Transfer #${transferNum}/${totalTransfers} successful`));
             console.log(chalk.green(`${getTimestamp(this.currentWalletNum)} ✓ View transaction: ${constants.NETWORK.EXPLORER_URL}/tx/${receipt.transactionHash}`));
             
             return true;

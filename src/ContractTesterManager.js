@@ -16,8 +16,22 @@ class ContractTesterManager {
             }
         };
         
-        // Load configuration
-        this.config = { ...this.defaultConfig, ...config.contract_testing };
+        // Deep merge the configuration to properly handle nested objects
+        this.config = {
+            ...this.defaultConfig,
+            ...(config.contract_testing || {})
+        };
+        
+        // Explicitly ensure iterations settings are properly merged
+        if (config.contract_testing && config.contract_testing.iterations) {
+            this.config.iterations = {
+                ...this.defaultConfig.iterations,
+                ...config.contract_testing.iterations
+            };
+            
+            // Log the actual iteration values being used
+            console.log(chalk.cyan(`${getTimestamp()} ℹ Contract testing iterations config: min=${this.config.iterations.min}, max=${this.config.iterations.max}`));
+        }
         
         // Also include the delay config from the main config
         if (config.delay) {
@@ -249,6 +263,7 @@ class ContractTesterManager {
             const receipt = await this.web3.eth.sendSignedTransaction(signedTx.rawTransaction);
             
             console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ Parameter tester contract deployed at: ${receipt.contractAddress}`));
+            console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ View transaction: ${constants.NETWORK.EXPLORER_URL}/tx/${receipt.transactionHash}`));
             
             return {
                 contractAddress: receipt.contractAddress,
@@ -296,9 +311,14 @@ class ContractTesterManager {
             // Generate test values
             const testValues = this.generateTestValues();
             
-            // Get number of iterations
-            const minIterations = Math.max(1, this.config.iterations?.min || 3);
-            const maxIterations = Math.max(minIterations, this.config.iterations?.max || 10);
+            // Get number of iterations - ensure we're using exact values from config
+            const minIterations = this.config.iterations.min;
+            const maxIterations = this.config.iterations.max;
+            
+            // Log the actual values being used
+            console.log(chalk.cyan(`${getTimestamp(this.walletNum)} ℹ Using iterations range: min=${minIterations}, max=${maxIterations}`));
+            
+            // Calculate the actual number of iterations to run
             const iterations = Math.floor(Math.random() * (maxIterations - minIterations + 1)) + minIterations;
             
             console.log(chalk.cyan(`${getTimestamp(this.walletNum)} ℹ Will perform ${iterations} iterations of parameter variation tests...`));
@@ -352,7 +372,8 @@ class ContractTesterManager {
                     // Send transaction
                     const receipt = await this.web3.eth.sendSignedTransaction(signedTx.rawTransaction);
                     
-                    console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ Parameter test successful: setValue(${value}), tx: ${receipt.transactionHash}`));
+                    console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ Parameter test successful: setValue(${value})`));
+                    console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ View transaction: ${constants.NETWORK.EXPLORER_URL}/tx/${receipt.transactionHash}`));
                     successCount++;
                     
                     // After setting, verify the value was set correctly
@@ -385,9 +406,14 @@ class ContractTesterManager {
                 { name: "subtractValue", fn: (value) => contract.methods.subtractValue(value) }
             ];
             
-            // Get number of iterations
-            const minIterations = Math.max(1, this.config.iterations?.min || 3);
-            const maxIterations = Math.max(minIterations, this.config.iterations?.max || 10);
+            // Get number of iterations - use exact values from config
+            const minIterations = this.config.iterations.min;
+            const maxIterations = this.config.iterations.max;
+            
+            // Log the actual values being used
+            console.log(chalk.cyan(`${getTimestamp(this.walletNum)} ℹ Using iterations range: min=${minIterations}, max=${maxIterations}`));
+            
+            // Calculate the actual number of iterations to run
             const iterations = Math.floor(Math.random() * (maxIterations - minIterations + 1)) + minIterations;
             
             console.log(chalk.cyan(`${getTimestamp(this.walletNum)} ℹ Will perform ${iterations} iterations of stress tests...`));
@@ -432,9 +458,10 @@ class ContractTesterManager {
                 this.incrementNonce();
                 
                 // Send transaction
-                await this.web3.eth.sendSignedTransaction(signedTx.rawTransaction);
+                const receipt = await this.web3.eth.sendSignedTransaction(signedTx.rawTransaction);
                 
                 console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ Base value set to ${baseValue}`));
+                console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ View transaction: ${constants.NETWORK.EXPLORER_URL}/tx/${receipt.transactionHash}`));
             } catch (error) {
                 console.log(chalk.red(`${getTimestamp(this.walletNum)} ✗ Failed to set base value for stress tests: ${error.message}`));
                 return false;
@@ -490,7 +517,8 @@ class ContractTesterManager {
                     // Send transaction
                     const receipt = await this.web3.eth.sendSignedTransaction(signedTx.rawTransaction);
                     
-                    console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ Stress test successful: ${operation.name}(${value}), tx: ${receipt.transactionHash}`));
+                    console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ Stress test successful: ${operation.name}(${value})`));
+                    console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ View transaction: ${constants.NETWORK.EXPLORER_URL}/tx/${receipt.transactionHash}`));
                     successCount++;
                     
                     // Check current value
@@ -516,6 +544,11 @@ class ContractTesterManager {
             
             // Create contract instance
             const contract = new this.web3.eth.Contract(abi, contractAddress);
+            
+            // Since boundary tests use fixed values, we'll log the config but not use random iterations
+            const minIterations = this.config.iterations.min;
+            const maxIterations = this.config.iterations.max;
+            console.log(chalk.cyan(`${getTimestamp(this.walletNum)} ℹ Config iterations range: min=${minIterations}, max=${maxIterations} (not used for boundary tests)`));
             
             // Define boundary test values
             const boundaryValues = [
@@ -579,7 +612,8 @@ class ContractTesterManager {
                     // Send transaction
                     const receipt = await this.web3.eth.sendSignedTransaction(signedTx.rawTransaction);
                     
-                    console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ Boundary test successful: setValue(${value}), tx: ${receipt.transactionHash}`));
+                    console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ Boundary test successful: setValue(${value})`));
+                    console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ View transaction: ${constants.NETWORK.EXPLORER_URL}/tx/${receipt.transactionHash}`));
                     successCount++;
                     
                     // Verify the value was set correctly

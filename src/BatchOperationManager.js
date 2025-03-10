@@ -15,8 +15,22 @@ class BatchOperationManager {
             }
         };
         
-        // Load configuration
-        this.config = { ...this.defaultConfig, ...config.batch_operations };
+        // Deep merge the configuration to properly handle nested objects
+        this.config = {
+            ...this.defaultConfig,
+            ...(config.batch_operations || {})
+        };
+        
+        // Explicitly ensure operations_per_batch settings are properly merged
+        if (config.batch_operations && config.batch_operations.operations_per_batch) {
+            this.config.operations_per_batch = {
+                ...this.defaultConfig.operations_per_batch,
+                ...config.batch_operations.operations_per_batch
+            };
+            
+            // Log the actual operations_per_batch values being used
+            console.log(chalk.cyan(`${getTimestamp()} ℹ Batch operations config: min=${this.config.operations_per_batch.min}, max=${this.config.operations_per_batch.max}`));
+        }
         
         // Also include the delay config from the main config
         if (config.delay) {
@@ -349,6 +363,7 @@ class BatchOperationManager {
             const receipt = await this.web3.eth.sendSignedTransaction(signedTx.rawTransaction);
             
             console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ BatchProcessor contract deployed at: ${receipt.contractAddress}`));
+            console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ View transaction: ${constants.NETWORK.EXPLORER_URL}/tx/${receipt.transactionHash}`));
             
             return {
                 contractAddress: receipt.contractAddress,
@@ -411,7 +426,8 @@ class BatchOperationManager {
             console.log(chalk.cyan(`${getTimestamp(this.walletNum)} ℹ Sending setValue transaction...`));
             const receipt = await this.web3.eth.sendSignedTransaction(signedTx.rawTransaction);
             
-            console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ setValue operation successful: ${receipt.transactionHash}`));
+            console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ setValue operation successful`));
+            console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ View transaction: ${constants.NETWORK.EXPLORER_URL}/tx/${receipt.transactionHash}`));
             
             // Verify the value was set correctly
             const status = await contract.methods.getStatus().call();
@@ -444,9 +460,14 @@ class BatchOperationManager {
             "multiplyValue"
         ];
         
-        // Determine number of operations in batch
-        const minOps = Math.max(2, this.config.operations_per_batch?.min || 2);
-        const maxOps = Math.max(minOps, this.config.operations_per_batch?.max || 5);
+        // Determine number of operations in batch - use exact values from config
+        const minOps = this.config.operations_per_batch.min;
+        const maxOps = this.config.operations_per_batch.max;
+        
+        // Log the actual values being used
+        console.log(chalk.cyan(`${getTimestamp(this.walletNum)} ℹ Using operations per batch range: min=${minOps}, max=${maxOps}`));
+        
+        // Calculate the actual number of operations
         const numOperations = Math.floor(Math.random() * (maxOps - minOps + 1)) + minOps;
         
         console.log(chalk.cyan(`${getTimestamp(this.walletNum)} ℹ Generating batch with ${numOperations} operations...`));
@@ -525,7 +546,7 @@ class BatchOperationManager {
             console.log(chalk.cyan(`${getTimestamp(this.walletNum)} ℹ Sending batch execution transaction...`));
             const receipt = await this.web3.eth.sendSignedTransaction(signedTx.rawTransaction);
             
-            console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ Batch execution successful: ${receipt.transactionHash}`));
+            console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ Batch execution successful`));
             console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ View transaction: ${constants.NETWORK.EXPLORER_URL}/tx/${receipt.transactionHash}`));
             
             // Verify the status after batch execution

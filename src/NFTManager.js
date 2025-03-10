@@ -481,7 +481,6 @@ class NFTManager {
             const deployedContract = await this.deployContract(collectionName, symbol, supply);
             
             console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ Contract deployed at: ${deployedContract.contractAddress}`));
-            console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ Transaction hash: ${deployedContract.txHash}`));
             console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ View transaction: ${constants.NETWORK.EXPLORER_URL}/tx/${deployedContract.txHash}`));
             
             // Determine mint count based on config
@@ -507,7 +506,7 @@ class NFTManager {
                 
                 if (mintResult.success) {
                     mintedTokens.push(tokenId);
-                    console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ Token #${tokenId} minted successfully: ${mintResult.txHash}`));
+                    console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ Token #${tokenId} minted successfully`));
                     console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ View transaction: ${constants.NETWORK.EXPLORER_URL}/tx/${mintResult.txHash}`));
                 } else {
                     console.log(chalk.red(`${getTimestamp(this.walletNum)} ✗ Failed to mint token #${tokenId}: ${mintResult.error}`));
@@ -535,7 +534,7 @@ class NFTManager {
                     );
                     
                     if (burnResult.success) {
-                        console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ Token #${tokenId} burned successfully: ${burnResult.txHash}`));
+                        console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ Token #${tokenId} burned successfully`));
                         console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ View transaction: ${constants.NETWORK.EXPLORER_URL}/tx/${burnResult.txHash}`));
                     } else {
                         console.log(chalk.red(`${getTimestamp(this.walletNum)} ✗ Failed to burn token #${tokenId}: ${burnResult.error}`));

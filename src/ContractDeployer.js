@@ -367,7 +367,6 @@ class ContractDeployer {
             const deployedContract = await this.deployContract(compiledContract);
             
             console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ Contract deployed at: ${deployedContract.contractAddress}`));
-            console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ Transaction hash: ${deployedContract.txHash}`));
             console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ View transaction: ${constants.NETWORK.EXPLORER_URL}/tx/${deployedContract.txHash}`));
             
             // Skip interactions if disabled in config
@@ -413,7 +412,7 @@ class ContractDeployer {
                 );
                 
                 if (result.success) {
-                    console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ ${interactionType} successful: ${result.txHash}`));
+                    console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ ${interactionType} successful`));
                     console.log(chalk.green(`${getTimestamp(this.walletNum)} ✓ View transaction: ${constants.NETWORK.EXPLORER_URL}/tx/${result.txHash}`));
                     successCount++;
                 } else {
