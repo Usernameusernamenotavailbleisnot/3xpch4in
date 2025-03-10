@@ -3,15 +3,15 @@
   "enable_contract_deploy": true,
   "gas_price_multiplier": 1.2,
   "max_retries": 5,
-  "base_wait_time": 1,
+  "base_wait_time": 10,
   "transfer_amount_percentage": 90,
   "transfer_count": {
     "min": 1,
     "max": 3
   },
   "delay": {
-    "min_seconds": 1,
-    "max_seconds": 2
+    "min_seconds": 5,
+    "max_seconds": 30
   },
   "operation_randomization": {
     "enable_randomization": true,
@@ -65,7 +65,7 @@
     }
   },
   "faucet": {
-    "enable_faucet": false,
+    "enable_faucet": true,
     "max_retries": 3,
     "max_wait_time": 300000,
     "check_interval": 5000
