@@ -11,6 +11,8 @@ const ContractDeployer = require('./src/ContractDeployer');
 const ERC20TokenDeployer = require('./src/ERC20TokenDeployer');
 const NFTManager = require('./src/NFTManager');
 const FaucetManager = require('./src/FaucetManager');
+const ContractTesterManager = require('./src/ContractTesterManager');
+const BatchOperationManager = require('./src/BatchOperationManager');
 const constants = require('./utils/constants');
 const { addRandomDelay, getTimestamp } = require('./utils/delayUtils');
 
@@ -38,10 +40,12 @@ async function loadConfig() {
             erc20: { enable_erc20: true },
             nft: { enable_nft: true },
             faucet: { enable_faucet: true },
+            contract_testing: { enable_contract_testing: true },
+            batch_operations: { enable_batch_operations: true },
             operation_randomization: {
                 enable_randomization: false,
-                excluded_operations: [],
-                operations_to_run: ["faucet", "transfer", "contract_deploy", "erc20", "nft"]
+                excluded_operations: ["faucet"],
+                operations_to_run: ["faucet", "transfer", "contract_deploy", "contract_testing", "erc20", "nft", "batch_operations"]
             },
             delay: {
                 min_seconds: constants.DELAY.MIN_SECONDS,
@@ -60,10 +64,12 @@ async function loadConfig() {
             erc20: { enable_erc20: true },
             nft: { enable_nft: true },
             faucet: { enable_faucet: true },
+            contract_testing: { enable_contract_testing: true },
+            batch_operations: { enable_batch_operations: true },
             operation_randomization: {
                 enable_randomization: false,
-                excluded_operations: [],
-                operations_to_run: ["faucet", "transfer", "contract_deploy", "erc20", "nft"]
+                excluded_operations: ["faucet"],
+                operations_to_run: ["faucet", "transfer", "contract_deploy", "contract_testing", "erc20", "nft", "batch_operations"]
             },
             gas_price_multiplier: constants.GAS.PRICE_MULTIPLIER,
             max_retries: constants.RETRY.MAX_RETRIES,
@@ -257,12 +263,62 @@ async function executeNFTOperation(pk, config, walletNum) {
     return false;
 }
 
+// Execute contract testing operations
+async function executeContractTestingOperation(pk, config, walletNum) {
+    if (config.contract_testing && config.contract_testing.enable_contract_testing) {
+        try {
+            console.log(chalk.blue.bold(`\n=== Running Contract Testing Operations for Wallet ${walletNum} ===\n`));
+            
+            // Initialize contract tester manager with wallet's private key and current config
+            const contractTesterManager = new ContractTesterManager(pk, config);
+            contractTesterManager.setWalletNum(walletNum);
+            
+            // Execute contract testing operations
+            await contractTesterManager.executeContractTestingOperations();
+            
+            // Add random delay after contract testing operations
+            await addRandomDelay(config, walletNum, "next operation");
+            
+            return true;
+        } catch (error) {
+            console.log(chalk.red(`${getTimestamp(walletNum)} ✗ Error in contract testing operations: ${error.message}`));
+            return false;
+        }
+    }
+    return false;
+}
+
+// Execute batch operations
+async function executeBatchOperation(pk, config, walletNum) {
+    if (config.batch_operations && config.batch_operations.enable_batch_operations) {
+        try {
+            console.log(chalk.blue.bold(`\n=== Running Batch Operations for Wallet ${walletNum} ===\n`));
+            
+            // Initialize batch operation manager with wallet's private key and current config
+            const batchOperationManager = new BatchOperationManager(pk, config);
+            batchOperationManager.setWalletNum(walletNum);
+            
+            // Execute batch operations
+            await batchOperationManager.executeBatchOperationOperations();
+            
+            // Add random delay after batch operations
+            await addRandomDelay(config, walletNum, "next operation");
+            
+            return true;
+        } catch (error) {
+            console.log(chalk.red(`${getTimestamp(walletNum)} ✗ Error in batch operations: ${error.message}`));
+            return false;
+        }
+    }
+    return false;
+}
+
 // Randomize operations order
 function getRandomizedOperations(config) {
     const randomizationConfig = config.operation_randomization || { 
         enable_randomization: false, 
-        excluded_operations: [],
-        operations_to_run: ["faucet", "transfer", "contract_deploy", "erc20", "nft"]
+        excluded_operations: ["faucet"],
+        operations_to_run: ["faucet", "transfer", "contract_deploy", "contract_testing", "erc20", "nft", "batch_operations"]
     };
     
     // Define all operations
@@ -270,13 +326,15 @@ function getRandomizedOperations(config) {
         { name: "faucet", fn: executeFaucetOperation },
         { name: "transfer", fn: executeTransferOperation },
         { name: "contract_deploy", fn: executeContractOperation },
+        { name: "contract_testing", fn: executeContractTestingOperation },
         { name: "erc20", fn: executeERC20Operation },
-        { name: "nft", fn: executeNFTOperation }
+        { name: "nft", fn: executeNFTOperation },
+        { name: "batch_operations", fn: executeBatchOperation }
     ];
     
     // Filter operations based on operations_to_run config
     const operationsToRun = randomizationConfig.operations_to_run || 
-        ["faucet", "transfer", "contract_deploy", "erc20", "nft"];
+        ["faucet", "transfer", "contract_deploy", "contract_testing", "erc20", "nft", "batch_operations"];
     
     const filteredOperations = allOperations.filter(op => operationsToRun.includes(op.name));
     
